@@ -1,0 +1,98 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: currencyservice
+spec:
+  serviceName: currencyservice
+  selector:
+    matchLabels:
+      app: currencyservice
+      version: "1"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: currencyservice
+        version: "1"
+        tingyun-agent-injected: "true"
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: server
+        image: {{ .Values.images.repository }}/{{ .Values.currencyService.name }}:0.0.2 
+        imagePullPolicy: Always
+        ports:
+        - name: grpc
+          containerPort: 7000
+        env:
+        # - name: DISABLE_STATS
+        #   value: "1"
+        # - name: DISABLE_TRACING
+        #   value: "1"
+        - name: PORT
+          value: "7000"
+        - name: JAEGER_HOST
+          value: "jaeger-collector.observability.svc.cluster.local"
+            #valueFrom:
+            #fieldRef:
+            #fieldPath: status.hostIP
+        - name: JAEGER_PORT
+          #value: "6832"
+          value: "14268"
+        #- name: ZIPKIN_COLLECTOR_URL
+        #  value: "http://jaeger-collector:9411/api/v2/spans"
+        - name: SERVICE_NAME
+          value: "currencyservice"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        #readinessProbe:
+        #  exec:
+        #    command: ["/bin/grpc_health_probe", "-addr=:7000"]
+        #livenessProbe:
+        #  exec:
+        #    command: ["/bin/grpc_health_probe", "-addr=:7000"]
+        resources:
+          requests:
+            cpu: 200m
+            memory: 128Mi
+          limits:
+            cpu: 400m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: currencyservice
+spec:
+  type: ClusterIP
+  selector:
+    app: currencyservice
+    version: "1"
+  ports:
+  - name: grpc
+    port: 7000
+    targetPort: 7000

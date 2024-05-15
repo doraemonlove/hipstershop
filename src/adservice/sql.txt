@@ -1,0 +1,49 @@
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'lens',
+    '/product/66VCHSJNUP',
+    'Lens for sale. 50% off.'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'camera',
+    '/product/2ZYFJ3GM2N',
+    'Camera for sale. 20% off.'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'recordPlayer',
+    '/product/0PUK6V6EV0',
+    'Record player for sale. 30% off.'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'bike',
+    '/product/9SIQT8TOJO',
+    'City bike for sale. 10% off.'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'baristaKit',
+    '/product/1YMWWN1N4O',
+    'Barista Kit for sale. Buy one, get second kit for free'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'airPlant',
+    '/product/6E92ZMYYFZ',
+    'Air Plant for sale. Buy two, get third one for free'
+);
+insert into aditems
+(`item_name`, `redirect_url`, `text`)
+values (
+    'terrarium',
+    '/product/L9ECAV7KIM',
+    'Terrarium for sale. Buy one, get second one for free'
+);

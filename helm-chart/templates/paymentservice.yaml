@@ -1,0 +1,95 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: paymentservice
+spec:
+  serviceName: paymentservice
+  selector:
+    matchLabels:
+      app: paymentservice
+      version: "1"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        version: "1"
+        app: paymentservice
+        tingyun-agent-injected: "true"
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: server
+        image: {{ .Values.images.repository }}/{{ .Values.paymentService.name }}:0.0.2 
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 50051
+        env:
+        # - name: DISABLE_STATS
+        #   value: "1"
+        # - name: DISABLE_TRACING
+        #   value: "1"
+        - name: SERVICE_NAME
+          value: "paymentservice"
+        - name: PORT
+          value: "50051"
+        - name: JAEGER_HOST
+          value: "jaeger-collector.observability.svc.cluster.local"
+            #valueFrom:
+            #fieldRef:
+            #fieldPath: status.hostIP
+        - name: JAEGER_PORT
+            #value: "6832"
+          value: "14268"
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        #readinessProbe:
+        #  exec:
+        #    command: ["/bin/grpc_health_probe", "-addr=:50051"]
+        #livenessProbe:
+        #  exec:
+        #    command: ["/bin/grpc_health_probe", "-addr=:50051"]
+        resources:
+          requests:
+            cpu: 200m
+            memory: 128Mi
+          limits:
+            cpu: 400m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paymentservice
+spec:
+  type: ClusterIP
+  selector:
+    app: paymentservice
+    version: "1"
+  ports:
+  - name: grpc
+    port: 50051
+    targetPort: 50051
