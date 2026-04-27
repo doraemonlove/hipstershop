@@ -28,12 +28,11 @@ spec:
       labels:
         app: cartservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.cartService.name }}:{{ .Values.images.tag }}
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.cartService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 7070
@@ -48,10 +47,8 @@ spec:
           value: "0.0.0.0"
         - name: HIPSTER_SICK # Used for GCP demo
           value: "false"
-        - name: JAEGER_HOST
-          value: "jaeger-collector.observability.svc.cluster.local"
-        - name: JAEGER_PORT
-          value: "4317"
+        - name: OTEL_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -64,8 +61,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        - name: TINGYUN_LICENSE_KEY
-          value: "aJvUQ0IMBRBEotyK"
         resources:
           requests:
             cpu: 400m

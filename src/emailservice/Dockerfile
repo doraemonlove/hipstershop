@@ -1,4 +1,4 @@
-FROM python:3.7-slim as base
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.8.19-slim-linuxarm64 as base
 
 FROM base as builder
 
@@ -23,7 +23,7 @@ RUN apt-get -qq update \
         procps
 
 # Download the grpc health probe
-COPY grpc_health_probe-linux-amd64 /bin/grpc_health_probe
+COPY grpc_health_probe-linux-arm64 /bin/grpc_health_probe
 
 RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0  && \
     chmod +x /bin/grpc_health_probe
@@ -31,7 +31,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0  && \
 WORKDIR /email_server
 
 # Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.7/ /usr/local/lib/python3.7/
+COPY --from=builder /usr/local/lib/python3.8/ /usr/local/lib/python3.8/
 
 # Add the application
 COPY . .

@@ -29,12 +29,11 @@ spec:
       labels:
         app: emailservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.emailService.name }}:{{ .Values.images.tag }}
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.emailService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -47,11 +46,8 @@ spec:
         #   value: "1"
         - name: DISABLE_PROFILER
           value: "1"
-        - name: JAEGER_HOST
-          # value: "jaeger-collector"
-          value: "jaeger-collector.observability.svc.cluster.local"
-        - name: JAEGER_PORT
-          value: "14268"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
         - name: SERVICE_NAME
           value: "emailservice"
         - name: POD_IP

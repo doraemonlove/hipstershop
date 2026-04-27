@@ -28,12 +28,11 @@ spec:
       labels:
         app: adservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.adService.name }}:{{ .Values.images.tag }}
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.adService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 9555
@@ -45,10 +44,9 @@ spec:
         # - name: DISABLE_TRACING
         #   value: "1"
         - name: JAEGER_HOST
-          value: "jaeger-collector.observability.svc.cluster.local"
+          value: "otel-collector-opentelemetry-collector.observability.svc.cluster.local"
         - name: ZIPKIN_PORT
           value: "9411"
-          # value: "14268"
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -64,11 +62,11 @@ spec:
         - name: SERVICE_NAME
           value: "adservice"
         - name: MYSQL_ADDR
-          value: "223.193.36.169:4000"
+          value: "basic-tidb.tidb.svc.cluster.local:4000"
         - name: SQL_USER
           value: "root"
         - name: SQL_PASSWORD
-          value: "123456"
+          value: "Bizseer@2020"
         resources:
           requests:
             cpu: 400m

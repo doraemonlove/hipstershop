@@ -1,4 +1,4 @@
-FROM python:3.7-slim as base
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.8.19-slim-linuxarm64 as base
 
 FROM base as builder
 
@@ -19,7 +19,7 @@ ENV PYTHONUNBUFFERED=0
 # RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0 && \
 #     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
 #     chmod +x /bin/grpc_health_probe
-COPY grpc_health_probe-linux-amd64 /bin/grpc_health_probe
+COPY grpc_health_probe-linux-arm64 /bin/grpc_health_probe
 
 RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0  && \
     chmod +x /bin/grpc_health_probe
@@ -27,7 +27,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0  && \
 WORKDIR /recommendationservice
 
 # Grab packages from builder
-COPY --from=builder /usr/local/lib/python3.7/ /usr/local/lib/python3.7/
+COPY --from=builder /usr/local/lib/python3.8/ /usr/local/lib/python3.8/
 
 # add files into working directory
 COPY . .

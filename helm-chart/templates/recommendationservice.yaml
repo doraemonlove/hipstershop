@@ -29,12 +29,11 @@ spec:
       labels:
         app: recommendationservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.recommendationService.name }}:{{ .Values.images.tag }}
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.recommendationService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -55,9 +54,8 @@ spec:
           value: "8080"
         - name: PRODUCT_CATALOG_SERVICE_ADDR
           value: "productcatalogservice:3550"
-        - name: JAEGER_HOST
-          #  value: "jaeger-collector"
-          value: "jaeger-collector.observability.svc.cluster.local"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
         - name: SERVICE_NAME
           value: "recommendationservice"
         - name: POD_IP

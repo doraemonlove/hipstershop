@@ -1,4 +1,4 @@
-FROM python:3.11.1-slim as base
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/python:3.11-slim-linuxarm64 as base
 
 FROM base as builder
 

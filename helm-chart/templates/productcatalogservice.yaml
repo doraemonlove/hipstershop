@@ -28,12 +28,11 @@ spec:
       labels:
         app: productcatalogservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.productCatalogService.name }}:{{ .Values.images.tag }}
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.productCatalogService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 3550
@@ -42,8 +41,8 @@ spec:
           value: "3550"
         - name: DISABLE_PROFILER
           value: "1"
-        - name: JAEGER_SERVICE_ADDR
-          value: "jaeger-collector.observability.svc.cluster.local:14268/api/traces"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "otel-collector-opentelemetry-collector.observability.svc.cluster.local:4317"
         - name: SERVICE_NAME
           value: "productcatalogservice"
         - name: POD_IP
@@ -59,11 +58,11 @@ spec:
             fieldRef:
               fieldPath: spec.nodeName
         - name: MYSQL_ADDR
-          value: "223.193.36.169:4000"
+          value: "basic-tidb.tidb.svc.cluster.local:4000"
         - name: SQL_USER
           value: "root"
         - name: SQL_PASSWORD
-          value: "123456"
+          value: "Bizseer@2020"
         - name: ConnMaxLifeTime
           value: "100"
         - name: mySQLmaxIdleConns

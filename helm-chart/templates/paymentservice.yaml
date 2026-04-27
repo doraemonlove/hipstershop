@@ -28,12 +28,11 @@ spec:
       labels:
         version: "1"
         app: paymentservice
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.paymentService.name }}:0.0.2 
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.paymentService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - containerPort: 50051
@@ -46,14 +45,8 @@ spec:
           value: "paymentservice"
         - name: PORT
           value: "50051"
-        - name: JAEGER_HOST
-          value: "jaeger-collector.observability.svc.cluster.local"
-            #valueFrom:
-            #fieldRef:
-            #fieldPath: status.hostIP
-        - name: JAEGER_PORT
-            #value: "6832"
-          value: "14268"
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces"
         - name: POD_IP
           valueFrom:
             fieldRef:

@@ -1,20 +1,22 @@
-FROM golang:1.14.7 AS builder
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/golang:1.25.5-linuxarm64 AS builder
 WORKDIR /build/src
-ENV GOPROXY https://goproxy.cn
+
+ENV GOPROXY=https://goproxy.cn,direct
+ENV GO111MODULE=on
+
 COPY . .
-RUN go build -gcflags='-N -l' -tags netgo -o /checkoutservice .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+    go build -gcflags='-N -l' -tags netgo -ldflags='-s -w' -o /checkoutservice .
 
-FROM alpine as release
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-RUN apk add --no-cache ca-certificates procps
-# RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0 && \
-#     wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
-#     chmod +x /bin/grpc_health_probe
-COPY grpc_health_probe-linux-amd64 /bin/grpc_health_probe
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/alpine:latest-linuxarm64 AS release
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk add --no-cache ca-certificates procps
 
-RUN GRPC_HEALTH_PROBE_VERSION=v0.2.0  && \
-    chmod +x /bin/grpc_health_probe
+COPY grpc_health_probe-linux-arm64 /bin/grpc_health_probe
+RUN chmod +x /bin/grpc_health_probe
 
 COPY --from=builder /checkoutservice /checkoutservice
+RUN chmod +x /checkoutservice
+
 EXPOSE 5050
 ENTRYPOINT ["/checkoutservice"]

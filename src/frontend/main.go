@@ -24,13 +24,17 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/exporters/trace/jaeger"
-	"go.opentelemetry.io/otel/instrumentation/grpctrace"
+	
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/propagation"
+	
 	"google.golang.org/grpc"
 
-	otelhttp "go.opentelemetry.io/contrib/instrumentation/net/http"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -140,42 +144,61 @@ func main() {
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))
 }
 
-// initTracer creates a new trace provider instance and registers it as global trace provider.
 func initTracer(log logrus.FieldLogger) func() {
+	ctx := context.Background()
 
-	svcAddr := os.Getenv("JAEGER_SERVICE_ADDR")
-	// svcAddr := "http://localhost:14268/api/traces"
-	podIp := os.Getenv("POD_IP")
+	podIP := os.Getenv("POD_IP")
 	podName := os.Getenv("POD_NAME")
 	nodeName := os.Getenv("NODE_NAME")
-    serviceName := os.Getenv("SERVICE_NAME")
+	serviceName := os.Getenv("SERVICE_NAME")
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
-	if svcAddr == "" {
-		log.Info("jaeger initialization disabled.")
+	if endpoint == "" {
+		log.Info("otel initialization disabled.")
+		return func() {}
 	}
-	endPoint := fmt.Sprintf("http://%s", svcAddr)
-	// Create and install Jaeger export pipeline
-	flush, err := jaeger.InstallNewPipeline(
-		jaeger.WithCollectorEndpoint(endPoint),
-		jaeger.WithProcess(jaeger.Process{
-			ServiceName: serviceName,
-			Tags: []kv.KeyValue{
-				kv.String("exporter", "jaeger"),
-				kv.Float64("float", 312.23),
-				kv.String("ip", podIp),
-				kv.String("name", podName),
-				kv.String("node_name", nodeName),
-			},
-		}),
-		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+
+	exp, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Info("jaeger initialization completed.")
+	res, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", serviceName),
+			attribute.String("exporter", "otlp"),
+			attribute.Float64("float", 312.23),
+			attribute.String("ip", podIP),
+			attribute.String("name", podName),
+			attribute.String("node_name", nodeName),
+		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exp),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
+
+	log.Info("otel initialization completed.")
 	return func() {
-		flush()
+		_ = tp.Shutdown(ctx)
 	}
 }
 
@@ -189,11 +212,12 @@ func mustMapEnv(target *string, envKey string) {
 
 func mustConnGRPC(ctx context.Context, conn **grpc.ClientConn, addr string) {
 	var err error
-	*conn, err = grpc.DialContext(ctx, addr,
+	*conn, err = grpc.DialContext(
+		ctx,
+		addr,
 		grpc.WithInsecure(),
 		grpc.WithTimeout(time.Second*3),
-		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		panic(errors.Wrapf(err, "grpc: failed to connect %s", addr))

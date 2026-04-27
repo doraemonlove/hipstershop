@@ -27,11 +27,10 @@ spec:
       labels:
         app: redis-cart
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       containers:
       - name: redis
-        image: redis:alpine
+        image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis:alpine-linuxarm64
         ports:
         - containerPort: 6379
         readinessProbe:

@@ -24,11 +24,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/exporters/trace/jaeger"
-
-	grpcotel "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"google.golang.org/grpc"
@@ -102,8 +103,7 @@ func main() {
 	if os.Getenv("DISABLE_STATS") == "" {
 		log.Info("Stats enabled.")
 		srv = grpc.NewServer(
-			grpc.UnaryInterceptor(grpcotel.UnaryServerInterceptor(global.Tracer(""))),
-			grpc.StreamInterceptor(grpcotel.StreamServerInterceptor(global.Tracer(""))),
+			grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		)
 	} else {
 		log.Info("Stats disabled.")
@@ -117,36 +117,60 @@ func main() {
 }
 
 func initTracer(log logrus.FieldLogger) func() {
-	podIp := os.Getenv("POD_IP")
+	ctx := context.Background()
+
+	podIP := os.Getenv("POD_IP")
 	podName := os.Getenv("POD_NAME")
 	nodeName := os.Getenv("NODE_NAME")
-	svcAddr := os.Getenv("JAEGER_SERVICE_ADDR")
-    serviceName := os.Getenv("SERVICE_NAME")
+	serviceName := os.Getenv("SERVICE_NAME")
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
-	if svcAddr == "" {
-		log.Info("jaeger initialization disabled.")
+	if endpoint == "" {
+		log.Info("otel initialization disabled.")
+		return func() {}
 	}
-	endPoint := fmt.Sprintf("http://%s", svcAddr)
-	flush, err := jaeger.InstallNewPipeline(
-		jaeger.WithCollectorEndpoint(endPoint),
-		jaeger.WithProcess(jaeger.Process{
-			ServiceName: serviceName,
-			Tags: []kv.KeyValue{
-				kv.String("exporter", "jaeger"),
-				kv.Float64("float", 312.23),
-				kv.String("ip", podIp),
-				kv.String("name", podName),
-				kv.String("node_name", nodeName),
-			},
-		}),
-		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+
+	exp, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info("jaeger initialization completed.")
+
+	res, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", serviceName),
+			attribute.String("exporter", "otlp"),
+			attribute.Float64("float", 312.23),
+			attribute.String("ip", podIP),
+			attribute.String("name", podName),
+			attribute.String("node_name", nodeName),
+		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exp),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
+
+	log.Info("otel initialization completed.")
 	return func() {
-		flush()
+		_ = tp.Shutdown(ctx)
 	}
 }
 
@@ -250,8 +274,7 @@ func (cs *checkoutService) prepareOrderItemsAndShippingQuoteFromCart(ctx context
 
 func (cs *checkoutService) quoteShipping(ctx context.Context, address *pb.Address, items []*pb.CartItem) (*pb.Money, error) {
 	conn, err := grpc.Dial(cs.shippingSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect shipping service: %+v", err)
@@ -270,8 +293,7 @@ func (cs *checkoutService) quoteShipping(ctx context.Context, address *pb.Addres
 
 func (cs *checkoutService) getUserCart(ctx context.Context, userID string) ([]*pb.CartItem, error) {
 	conn, err := grpc.Dial(cs.cartSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect cart service: %+v", err)
@@ -287,8 +309,7 @@ func (cs *checkoutService) getUserCart(ctx context.Context, userID string) ([]*p
 
 func (cs *checkoutService) emptyUserCart(ctx context.Context, userID string) error {
 	conn, err := grpc.Dial(cs.cartSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return fmt.Errorf("could not connect cart service: %+v", err)
@@ -304,8 +325,7 @@ func (cs *checkoutService) emptyUserCart(ctx context.Context, userID string) err
 func (cs *checkoutService) prepOrderItems(ctx context.Context, items []*pb.CartItem, userCurrency string) ([]*pb.OrderItem, error) {
 	out := make([]*pb.OrderItem, len(items))
 	conn, err := grpc.Dial(cs.productCatalogSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect product catalog service: %+v", err)
@@ -331,14 +351,13 @@ func (cs *checkoutService) prepOrderItems(ctx context.Context, items []*pb.CartI
 
 func (cs *checkoutService) convertCurrency(ctx context.Context, from *pb.Money, toCurrency string) (*pb.Money, error) {
 	conn, err := grpc.Dial(cs.currencySvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect currency service: %+v", err)
 	}
 	defer conn.Close()
-	result, err := pb.NewCurrencyServiceClient(conn).Convert(context.TODO(), &pb.CurrencyConversionRequest{
+	result, err := pb.NewCurrencyServiceClient(conn).Convert(ctx, &pb.CurrencyConversionRequest{
 		From:   from,
 		ToCode: toCurrency})
 	if err != nil {
@@ -349,8 +368,7 @@ func (cs *checkoutService) convertCurrency(ctx context.Context, from *pb.Money, 
 
 func (cs *checkoutService) chargeCard(ctx context.Context, amount *pb.Money, paymentInfo *pb.CreditCardInfo) (string, error) {
 	conn, err := grpc.Dial(cs.paymentSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect payment service: %+v", err)
@@ -368,8 +386,7 @@ func (cs *checkoutService) chargeCard(ctx context.Context, amount *pb.Money, pay
 
 func (cs *checkoutService) sendOrderConfirmation(ctx context.Context, email string, order *pb.OrderResult) error {
 	conn, err := grpc.Dial(cs.emailSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to connect email service: %+v", err)
@@ -383,8 +400,7 @@ func (cs *checkoutService) sendOrderConfirmation(ctx context.Context, email stri
 
 func (cs *checkoutService) shipOrder(ctx context.Context, address *pb.Address, items []*pb.CartItem) (string, error) {
 	conn, err := grpc.Dial(cs.shippingSvcAddr, grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(grpcotel.UnaryClientInterceptor(global.Tracer(""))),
-		grpc.WithStreamInterceptor(grpcotel.StreamClientInterceptor(global.Tracer(""))),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect email service: %+v", err)

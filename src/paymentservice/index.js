@@ -16,40 +16,42 @@
 
 'use strict';
 
-// require('@google-cloud/profiler').start({
-//   serviceContext: {
-//     service: 'paymentservice',
-//     version: '1.0.0'
-//   }
-// });
-// require('@google-cloud/trace-agent').start();
-// require('@google-cloud/debug-agent').start({
-//   serviceContext: {
-//     service: 'paymentservice',
-//     version: 'VERSION'
-//   }
-// });
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { BatchSpanProcessor } = require('@opentelemetry/sdk-trace-base');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+const { resourceFromAttributes } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
 
-const { NodeTracerProvider } = require('@opentelemetry/node');
-const { SimpleSpanProcessor } = require('@opentelemetry/tracing');
-const { JaegerExporter } =  require('@opentelemetry/exporter-jaeger');
+const serviceName = process.env.SERVICE_NAME || 'paymentservice';
+const otlpEndpoint =
+  process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+  process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 
-const options = {
-  serviceName: process.env.SERVICE_NAME || 'paymentservice',
-  tags: [{key: 'ip', value: process.env.POD_IP},
-    {key: 'name', value: process.env.POD_NAME},
-    {key: 'node_name', value: process.env.NODE_NAME}], // optional
-  host: process.env.JAEGER_HOST,
-  port: process.env.JAEGER_PORT, // optional
-  maxPacketSize: 65000 // optional
+if (!otlpEndpoint) {
+  throw new Error(
+    'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT is not set'
+  );
 }
 
-const exporter = new JaegerExporter(options);
-const provider = new NodeTracerProvider();
+const exporter = new OTLPTraceExporter({
+  url: otlpEndpoint,
+});
 
-provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-provider.register();
-console.log("zipkin tracing initialized");
+const resource = resourceFromAttributes({
+  [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+  ip: process.env.POD_IP,
+  name: process.env.POD_NAME,
+  node_name: process.env.NODE_NAME,
+});
+
+const sdk = new NodeSDK({
+  resource,
+  spanProcessor: new BatchSpanProcessor(exporter),
+});
+
+sdk.start();
+
+console.log('otel tracing initialized');
 
 const path = require('path');
 const HipsterShopServer = require('./server');

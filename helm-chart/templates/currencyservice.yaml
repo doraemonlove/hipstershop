@@ -28,12 +28,11 @@ spec:
       labels:
         app: currencyservice
         version: "1"
-        tingyun-agent-injected: "true"
     spec:
       terminationGracePeriodSeconds: 5
       containers:
       - name: server
-        image: {{ .Values.images.repository }}/{{ .Values.currencyService.name }}:0.0.2 
+        image: "{{- if .Values.images.repository -}}{{ .Values.images.repository }}/{{- end }}{{ .Values.currencyService.name }}:{{ .Values.images.tag }}"
         imagePullPolicy: Always
         ports:
         - name: grpc
@@ -45,16 +44,8 @@ spec:
         #   value: "1"
         - name: PORT
           value: "7000"
-        - name: JAEGER_HOST
-          value: "jaeger-collector.observability.svc.cluster.local"
-            #valueFrom:
-            #fieldRef:
-            #fieldPath: status.hostIP
-        - name: JAEGER_PORT
-          #value: "6832"
-          value: "14268"
-        #- name: ZIPKIN_COLLECTOR_URL
-        #  value: "http://jaeger-collector:9411/api/v2/spans"
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: "http://otel-collector-opentelemetry-collector.observability.svc.cluster.local:4318/v1/traces"
         - name: SERVICE_NAME
           value: "currencyservice"
         - name: POD_IP

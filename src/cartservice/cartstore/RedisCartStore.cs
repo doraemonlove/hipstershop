@@ -112,12 +112,12 @@ namespace cartservice.cartstore
                             ["podName"] = Environment.GetEnvironmentVariable("POD_NAME"),
                             ["nodeName"] = Environment.GetEnvironmentVariable("NODE_NAME")
                         });
-                Console.WriteLine("redis" + Environment.GetEnvironmentVariable("JAEGER_HOST") + ":" + Environment.GetEnvironmentVariable("JAEGER_PORT"));
+                Console.WriteLine("redis" + Environment.GetEnvironmentVariable("OTEL_ENDPOINT"));
                 openTelemetry = Sdk.CreateTracerProviderBuilder()
                     .SetResourceBuilder(resourcebuilder)
                     .AddOtlpExporter((options) =>
                     {
-                        options.Endpoint = new Uri("http://" + Environment.GetEnvironmentVariable("JAEGER_HOST") + ":" + Environment.GetEnvironmentVariable("JAEGER_PORT") + "/api/traces");
+                        options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_ENDPOINT"));
                     })
                     .AddRedisInstrumentation(redis, options =>
                     {

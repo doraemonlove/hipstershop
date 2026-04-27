@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 
 images:
-  repository: 223.193.36.130/library
+  repository: sealos.hub:5000/hipstershop
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.0.1"
+  tag: "1.0.0"
   imagePullPolicy: Always
 
 serviceAccounts:

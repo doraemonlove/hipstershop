@@ -29,7 +29,7 @@ namespace cartservice
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            Console.WriteLine("service" + Environment.GetEnvironmentVariable("JAEGER_HOST") + ":" + Environment.GetEnvironmentVariable("JAEGER_PORT"));
+            Console.WriteLine("service" + Environment.GetEnvironmentVariable("OTEL_ENDPOINT"));
             var resourcebuilder = 
                     ResourceBuilder
                         .CreateDefault()
@@ -49,7 +49,7 @@ namespace cartservice
                 builder.AddAspNetCoreInstrumentation();
                 builder.AddHttpClientInstrumentation();
                 builder.AddOtlpExporter((options) => {
-                    options.Endpoint = new Uri("http://" + Environment.GetEnvironmentVariable("JAEGER_HOST") + ":" + Environment.GetEnvironmentVariable("JAEGER_PORT") + "/api/traces");
+                    options.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_ENDPOINT"));
                     // options.Protocol = OtlpExportProtocol.HttpProtobuf;
                 });
                 builder.SetResourceBuilder(resourcebuilder);

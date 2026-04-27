@@ -14,28 +14,42 @@
  * limitations under the License.
  */
 
-// Tracing code
-const { NodeTracerProvider } = require('@opentelemetry/node');
-const { SimpleSpanProcessor } = require('@opentelemetry/tracing');
-const { JaegerExporter } =  require('@opentelemetry/exporter-jaeger');
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const { BatchSpanProcessor } = require('@opentelemetry/sdk-trace-base');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+const { resourceFromAttributes } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
 
-const options = {
-  serviceName: process.env.SERVICE_NAME ||'currencyservice',
-  tags: [{key: 'ip', value: process.env.POD_IP},
-         {key: 'name', value: process.env.POD_NAME},
-         {key: 'node_name', value: process.env.NODE_NAME}], // optional
-  host: process.env.JAEGER_HOST,
-  port: process.env.JAEGER_PORT, // optional
-  maxPacketSize: 65000 // optional
+const serviceName = process.env.SERVICE_NAME || 'currencyservice';
+const otlpEndpoint =
+  process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+  process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+if (!otlpEndpoint) {
+  throw new Error(
+    'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT or OTEL_EXPORTER_OTLP_ENDPOINT is not set'
+  );
 }
 
-const exporter = new JaegerExporter(options);
-const provider = new NodeTracerProvider();
-provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
-provider.register();
+const exporter = new OTLPTraceExporter({
+  url: otlpEndpoint,
+});
 
-console.log("jaeger tracing initialized");
+const resource = resourceFromAttributes({
+  [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+  ip: process.env.POD_IP,
+  name: process.env.POD_NAME,
+  node_name: process.env.NODE_NAME,
+});
 
+const sdk = new NodeSDK({
+  resource,
+  spanProcessor: new BatchSpanProcessor(exporter),
+});
+
+sdk.start();
+
+console.log('otel tracing initialized');
 
 const path = require('path');
 const grpc = require('@grpc/grpc-js');

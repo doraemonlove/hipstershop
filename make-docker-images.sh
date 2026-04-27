@@ -21,8 +21,8 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 log() { echo "$1" >&2; }
 
-TAG=0.0.1
-REPO_PREFIX=223.193.36.130/library
+TAG=1.0.0
+REPO_PREFIX=sealos.hub:5000/hipstershop
 
 TAG="${TAG:?TAG env variable must be specified}"
 REPO_PREFIX="${REPO_PREFIX:?REPO_PREFIX env variable must be specified}"
@@ -34,10 +34,10 @@ while IFS= read -d $'\0' -r dir; do
     (
         cd "${dir}"
         log "Building: ${image}"
-        docker build -t "${image}" .
+        sudo nerdctl build -t "${image}" .
 
         log "Pushing: ${image}"
-        docker push "${image}"
+        sudo ctr images push --user admin:passw0rd --plain-http "${image}"
     )
 done < <(find "${SCRIPTDIR}/src" -mindepth 1 -maxdepth 1 -type d -print0)
 

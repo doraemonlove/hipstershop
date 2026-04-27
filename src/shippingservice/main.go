@@ -27,11 +27,12 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
-	"go.opentelemetry.io/otel/api/global"
-	"go.opentelemetry.io/otel/api/kv"
-	"go.opentelemetry.io/otel/exporters/trace/jaeger"
-
-	grpcotel "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	pb "github.com/GoogleCloudPlatform/microservices-demo/src/shippingservice/genproto"
@@ -81,8 +82,7 @@ func main() {
 	if os.Getenv("DISABLE_STATS") == "" {
 		log.Info("Stats enabled.")
 		srv = grpc.NewServer(
-			grpc.UnaryInterceptor(grpcotel.UnaryServerInterceptor(global.Tracer(""))),
-			grpc.StreamInterceptor(grpcotel.StreamServerInterceptor(global.Tracer(""))),
+			grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		)
 	} else {
 		log.Info("Stats disabled.")
@@ -152,35 +152,59 @@ func (s *server) ShipOrder(ctx context.Context, in *pb.ShipOrderRequest) (*pb.Sh
 }
 
 func initTracer(log logrus.FieldLogger) func() {
-	svcAddr := os.Getenv("JAEGER_SERVICE_ADDR")
-	podIp := os.Getenv("POD_IP")
+	ctx := context.Background()
+
+	podIP := os.Getenv("POD_IP")
 	podName := os.Getenv("POD_NAME")
 	nodeName := os.Getenv("NODE_NAME")
 	serviceName := os.Getenv("SERVICE_NAME")
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
-	if svcAddr == "" {
-		log.Info("jaeger initialization disabled.")
+	if endpoint == "" {
+		log.Info("otel initialization disabled.")
+		return func() {}
 	}
-	endPoint := fmt.Sprintf("http://%s", svcAddr)
-	flush, err := jaeger.InstallNewPipeline(
-		jaeger.WithCollectorEndpoint(endPoint),
-		jaeger.WithProcess(jaeger.Process{
-			ServiceName: serviceName,
-			Tags: []kv.KeyValue{
-				kv.String("exporter", "jaeger"),
-				kv.Float64("float", 312.23),
-				kv.String("ip", podIp),
-				kv.String("name", podName),
-				kv.String("node_name", nodeName),
-			},
-		}),
-		jaeger.WithSDK(&sdktrace.Config{DefaultSampler: sdktrace.AlwaysSample()}),
+
+	exp, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithEndpoint(endpoint),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Info("jaeger initialization completed.")
+
+	res, err := resource.New(
+		ctx,
+		resource.WithAttributes(
+			attribute.String("service.name", serviceName),
+			attribute.String("exporter", "otlp"),
+			attribute.Float64("float", 312.23),
+			attribute.String("ip", podIP),
+			attribute.String("name", podName),
+			attribute.String("node_name", nodeName),
+		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exp),
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
+
+	log.Info("otel initialization completed.")
 	return func() {
-		flush()
+		_ = tp.Shutdown(ctx)
 	}
 }
