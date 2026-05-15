@@ -55,13 +55,15 @@ def new_export(spans):
 	podIp = os.environ.get('POD_IP')
 	podName = os.environ.get('POD_NAME')
 	nodeName = os.environ.get('NODE_NAME')
+	namespace = os.environ.get('NAMESPACE')
 
 	tags = [
 		jaegerType.Tag(key="exporter", vType=jaegerType.TagType.STRING, vStr="jaeger"),
 		jaegerType.Tag(key="float", vType=jaegerType.TagType.DOUBLE, vDouble=312.23),
 		jaegerType.Tag(key="ip", vType=jaegerType.TagType.STRING, vStr=podIp),
 		jaegerType.Tag(key="name", vType=jaegerType.TagType.STRING, vStr=podName),
-		jaegerType.Tag(key="node_name", vType=jaegerType.TagType.STRING, vStr=nodeName)
+		jaegerType.Tag(key="node_name", vType=jaegerType.TagType.STRING, vStr=nodeName),
+		jaegerType.Tag(key="namespace", vType=jaegerType.TagType.STRING, vStr=namespace)
 	]
 
 	batch = jaegerType.Batch(

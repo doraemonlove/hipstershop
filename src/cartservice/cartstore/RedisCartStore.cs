@@ -110,7 +110,8 @@ namespace cartservice.cartstore
                             ["float"] = 312.23,
                             ["ip"] = Environment.GetEnvironmentVariable("POD_IP"),
                             ["podName"] = Environment.GetEnvironmentVariable("POD_NAME"),
-                            ["nodeName"] = Environment.GetEnvironmentVariable("NODE_NAME")
+                            ["nodeName"] = Environment.GetEnvironmentVariable("NODE_NAME"),
+                            ["namespace"] = Environment.GetEnvironmentVariable("NAMESPACE")
                         });
                 Console.WriteLine("redis" + Environment.GetEnvironmentVariable("OTEL_ENDPOINT"));
                 openTelemetry = Sdk.CreateTracerProviderBuilder()

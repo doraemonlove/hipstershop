@@ -40,7 +40,8 @@ namespace cartservice
                             ["float"] = 312.23,
                             ["ip"] = Environment.GetEnvironmentVariable("POD_IP"),
                             ["podName"] = Environment.GetEnvironmentVariable("POD_NAME"),
-                            ["nodeName"] = Environment.GetEnvironmentVariable("NODE_NAME")
+                            ["nodeName"] = Environment.GetEnvironmentVariable("NODE_NAME"),
+                            ["namespace"] = Environment.GetEnvironmentVariable("NAMESPACE")
                         });
             // services.AddSingleton<ICartStore>();
             services.AddGrpc();

@@ -68,6 +68,7 @@ public final class AdService {
 
   private static final String podName = System.getenv("POD_NAME");
   private static final String nodeName = System.getenv("NODE_NAME");
+  private static final String namespace = System.getenv("NAMESPACE");
 
   private static final String ENDPOINT_V2_SPANS = "/api/v2/spans";
   private static final String ip = System.getenv("JAEGER_HOST");
@@ -284,6 +285,7 @@ public final class AdService {
         span.setAttribute("net.peer.port", clientInfo.getPort());
         span.setAttribute("name", podName);
         span.setAttribute("node_name", nodeName);
+        span.setAttribute("namespace", namespace);
         // Process the gRPC call normally
         try {
           span.setStatus(Status.OK);

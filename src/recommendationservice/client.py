@@ -52,6 +52,7 @@ def new_export(spans):
     podIp = os.environ.get('POD_IP')
     podName = os.environ.get('POD_NAME')
     nodeName = os.environ.get('NODE_NAME')
+    namespace = os.environ.get('NAMESPACE')
     tags = [
         jaegerType.Tag(
             key="exporter", vType=jaegerType.TagType.STRING, vStr="jaeger"),
@@ -62,7 +63,9 @@ def new_export(spans):
         jaegerType.Tag(
             key="name", vType=jaegerType.TagType.STRING, vStr=podName),
         jaegerType.Tag(key="node_name",
-                       vType=jaegerType.TagType.STRING, vStr=nodeName)
+                       vType=jaegerType.TagType.STRING, vStr=nodeName),
+        jaegerType.Tag(key="namespace",
+                       vType=jaegerType.TagType.STRING, vStr=namespace)
     ]
 
     batch = jaegerType.Batch(
@@ -103,4 +106,3 @@ if __name__ == "__main__":
     # make call to server
     response = stub.ListRecommendations(request)
     logger.info(response)
-

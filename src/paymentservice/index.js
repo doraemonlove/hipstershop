@@ -42,6 +42,7 @@ const resource = resourceFromAttributes({
   ip: process.env.POD_IP,
   name: process.env.POD_NAME,
   node_name: process.env.NODE_NAME,
+  namespace: process.env.NAMESPACE,
 });
 
 const sdk = new NodeSDK({

@@ -164,6 +164,7 @@ func initTracer(log logrus.FieldLogger) func() {
 	podIP := os.Getenv("POD_IP")
 	podName := os.Getenv("POD_NAME")
 	nodeName := os.Getenv("NODE_NAME")
+	namespace := os.Getenv("NAMESPACE")
 	serviceName := os.Getenv("SERVICE_NAME")
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 
@@ -190,6 +191,7 @@ func initTracer(log logrus.FieldLogger) func() {
 			attribute.String("ip", podIP),
 			attribute.String("name", podName),
 			attribute.String("node_name", nodeName),
+			attribute.String("namespace", namespace),
 		),
 	)
 	if err != nil {

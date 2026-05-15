@@ -29,6 +29,7 @@ resource = Resource.create({
     "ip": os.environ.get("POD_IP"),
     "name": os.environ.get("POD_NAME"),
     "node_name": os.environ.get("NODE_NAME"),
+    "namespace": os.environ.get("NAMESPACE"),
     "exporter": "otlp",
     "float": 312.23,
 })
