@@ -1,15 +1,16 @@
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:8-jdk-slim-linuxarm64 as builder
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:8-jdk-slim-linuxarm64 AS builder
 
 WORKDIR /app
 
-COPY ["build.gradle", "gradlew", "./"]
+COPY ["build.gradle", "settings.gradle", "gradlew", "./"]
 COPY gradle gradle
-RUN chmod +x gradlew
-RUN ./gradlew downloadRepos
+COPY gradle-6.3 gradle-6.3
+RUN chmod +x gradlew gradle-6.3/bin/gradle
+RUN ./gradle-6.3/bin/gradle --no-daemon downloadRepos
 
 COPY . .
-RUN chmod +x gradlew
-RUN ./gradlew installDist
+RUN chmod +x gradle-6.3/bin/gradle
+RUN ./gradle-6.3/bin/gradle --no-daemon installDist
 
 FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:8-jdk-slim-linuxarm64
 
